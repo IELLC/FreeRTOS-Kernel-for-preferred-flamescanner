@@ -26,12 +26,13 @@
 ; *
 ; */
 
-        .text
+        .sect ".kernelTEXT"
         .arm
         .ref vTaskSwitchContext
         .ref xTaskIncrementTick
         .ref ulTaskHasFPUContext
 		.ref pxCurrentTCB
+        .ref   ulCriticalNesting;
 
 ;/*-----------------------------------------------------------*/
 ;
@@ -146,6 +147,9 @@ vPortStartFirstTask:
 ; Yield to another task.
 
         .def vPortYieldProcessor
+swiPortYield:
+        ;  Restore stack and LR before calling vPortYieldProcessor
+        ldmfd   sp!, {r11,r12,lr}
 
 vPortYieldProcessor:
 		; Within an IRQ ISR the link register has an offset from the true return
@@ -223,8 +227,105 @@ vPortInitialiseFPSCR:
 
 	.endif ;__TI_VFP_SUPPORT__
 
+;-------------------------------------------------------------------------------
+; SWI Handler, interface to Protected Mode Functions
+
+        .def    vPortSWI
+        .asmfunc
+vPortSWI
+        stmfd   sp!, {r11,r12,lr}
+        mrs     r12, spsr
+        ands    r12, r12, #0x20
+        ldrbne  r12, [lr, #-2]
+        ldrbeq  r12, [lr, #-4]
+        ldr     r14,  table
+        ldr     r12, [r14, r12, lsl #2]
+        blx     r12
+        ldmfd   sp!, {r11,r12,pc}^
+
+table
+        .word    jumpTable
+
+jumpTable
+        .word    swiPortYield                 ; 0 - vPortYieldProcessor
+        .word   swiRaisePrivilege         ; 1 - Raise Priviledge
+        .word   swiPortEnterCritical         ; 2 - vPortEnterCritical
+        .word   swiPortExitCritical          ; 3 - vPortExitCritical
+        .word   swiPortTaskUsesFPU            ; 4 - vPortTaskUsesFPU
+        .word    swiPortDisableInterrupts     ; 5 - vPortDisableInterrupts
+        .word    swiPortEnableInterrupts      ; 6 - vPortEnableInterrupts
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiPortDisableInterrupts
+        .asmfunc
+swiPortDisableInterrupts
+        mrs     r11, SPSR
+        orr     r11, r11, #0x80
+        msr     SPSR_c, r11
+        bx      r14
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiPortEnableInterrupts
+        .asmfunc
+swiPortEnableInterrupts
+        mrs     r11, SPSR
+        bic     r11, r11, #0x80
+        msr     SPSR_c, r11
+        bx      r14
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiPortTaskUsesFPU
+        .asmfunc
+swiPortTaskUsesFPU
+        bx      r14
+
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiRaisePrivilege
+
+; Must return zero in R0 if caller was in user mode
+        .asmfunc
+swiRaisePrivilege
+        mrs     r12, spsr
+        ands    r0, r12, #0x0F      ; return value
+        orreq   r12, r12, #0x1F
+        msreq   spsr_c, r12
+        bx      r14
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiPortEnterCritical
+        .asmfunc
+swiPortEnterCritical
+        mrs     r11, SPSR
+        orr     r11, r11, #0x80
+        msr     SPSR_c, r11
+        ldr     r11, ulCriticalNestingConst
+        ldr     r12, [r11]
+        add     r12, r12, #1
+        str     r12, [r11]
+        bx      r14
+        .endasmfunc
+;-------------------------------------------------------------------------------
+; swiPortExitCritical
+        .asmfunc
+swiPortExitCritical
+        ldr     r11, ulCriticalNestingConst
+        ldr     r12, [r11]
+        cmp     r12, #0
+        bxeq    r14
+        subs    r12, r12, #1
+        str     r12, [r11]
+        bxne    r14
+        mrs     r11, SPSR
+        bic     r11, r11, #0x80
+        msr     SPSR_c, r11
+        bx      r14
+        .endasmfunc
+
 
 pxCurrentTCBConst	.word	pxCurrentTCB
 ulFPUContextConst 	.word   ulTaskHasFPUContext
+ulCriticalNestingConst   .word   ulCriticalNesting
+ulTaskHasFPUContextConst .word   ulTaskHasFPUContext
 ;-------------------------------------------------------------------------------
 

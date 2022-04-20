@@ -48,6 +48,14 @@
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 /*-----------------------------------------------------------*/
 
+/* Set the privilege level to user mode if xRunningPrivileged is false.  */
+/* TCJ: check must be against zero, see prvRaisePrivilege in portASM.asm */
+#define portRESET_PRIVILEGE( xRunningPrivileged ) if( xRunningPrivileged == 0 ) portSWITCH_TO_USER_MODE()
+
+
+/*----------------------------------------------------------------------------*/
+#pragma SWI_ALIAS(prvRaisePrivilege, 1);
+extern BaseType_t prvRaisePrivilege( void );
 #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
     BaseType_t MPU_xTaskCreate( TaskFunction_t pvTaskCode,
                                 const char * const pcName,
@@ -1294,170 +1302,170 @@ void MPU_vEventGroupDelete( EventGroupHandle_t xEventGroup ) /* FREERTOS_SYSTEM_
 }
 /*-----------------------------------------------------------*/
 
-size_t MPU_xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
-                              const void * pvTxData,
-                              size_t xDataLengthBytes,
-                              TickType_t xTicksToWait ) /* FREERTOS_SYSTEM_CALL */
-{
-    size_t xReturn;
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferSend( xStreamBuffer, pvTxData, xDataLengthBytes, xTicksToWait );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-size_t MPU_xStreamBufferNextMessageLengthBytes( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    size_t xReturn;
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferNextMessageLengthBytes( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-size_t MPU_xStreamBufferReceive( StreamBufferHandle_t xStreamBuffer,
-                                 void * pvRxData,
-                                 size_t xBufferLengthBytes,
-                                 TickType_t xTicksToWait ) /* FREERTOS_SYSTEM_CALL */
-{
-    size_t xReturn;
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferReceive( xStreamBuffer, pvRxData, xBufferLengthBytes, xTicksToWait );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-void MPU_vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    vStreamBufferDelete( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-}
-/*-----------------------------------------------------------*/
-
-BaseType_t MPU_xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    BaseType_t xReturn, xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferIsFull( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-BaseType_t MPU_xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    BaseType_t xReturn, xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferIsEmpty( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-BaseType_t MPU_xStreamBufferReset( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    BaseType_t xReturn, xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferReset( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-size_t MPU_xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    size_t xReturn;
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferSpacesAvailable( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-size_t MPU_xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-{
-    size_t xReturn;
-    BaseType_t xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferBytesAvailable( xStreamBuffer );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-BaseType_t MPU_xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
-                                             size_t xTriggerLevel ) /* FREERTOS_SYSTEM_CALL */
-{
-    BaseType_t xReturn, xRunningPrivileged;
-
-    xPortRaisePrivilege( xRunningPrivileged );
-    xReturn = xStreamBufferSetTriggerLevel( xStreamBuffer, xTriggerLevel );
-    vPortResetPrivilege( xRunningPrivileged );
-
-    return xReturn;
-}
-/*-----------------------------------------------------------*/
-
-#if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
-    StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,
-                                                         size_t xTriggerLevelBytes,
-                                                         BaseType_t xIsMessageBuffer ) /* FREERTOS_SYSTEM_CALL */
-    {
-        StreamBufferHandle_t xReturn;
-        BaseType_t xRunningPrivileged;
-
-        xPortRaisePrivilege( xRunningPrivileged );
-        xReturn = xStreamBufferGenericCreate( xBufferSizeBytes, xTriggerLevelBytes, xIsMessageBuffer );
-        vPortResetPrivilege( xRunningPrivileged );
-
-        return xReturn;
-    }
-#endif /* configSUPPORT_DYNAMIC_ALLOCATION */
-/*-----------------------------------------------------------*/
-
-#if ( configSUPPORT_STATIC_ALLOCATION == 1 )
-    StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
-                                                               size_t xTriggerLevelBytes,
-                                                               BaseType_t xIsMessageBuffer,
-                                                               uint8_t * const pucStreamBufferStorageArea,
-                                                               StaticStreamBuffer_t * const pxStaticStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
-    {
-        StreamBufferHandle_t xReturn;
-        BaseType_t xRunningPrivileged;
-
-        xPortRaisePrivilege( xRunningPrivileged );
-        xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes, xTriggerLevelBytes, xIsMessageBuffer, pucStreamBufferStorageArea, pxStaticStreamBuffer );
-        vPortResetPrivilege( xRunningPrivileged );
-
-        return xReturn;
-    }
-#endif /* configSUPPORT_STATIC_ALLOCATION */
+// size_t MPU_xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
+//                               const void * pvTxData,
+//                               size_t xDataLengthBytes,
+//                               TickType_t xTicksToWait ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     size_t xReturn;
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferSend( xStreamBuffer, pvTxData, xDataLengthBytes, xTicksToWait );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// size_t MPU_xStreamBufferNextMessageLengthBytes( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     size_t xReturn;
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferNextMessageLengthBytes( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// size_t MPU_xStreamBufferReceive( StreamBufferHandle_t xStreamBuffer,
+//                                  void * pvRxData,
+//                                  size_t xBufferLengthBytes,
+//                                  TickType_t xTicksToWait ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     size_t xReturn;
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferReceive( xStreamBuffer, pvRxData, xBufferLengthBytes, xTicksToWait );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// void MPU_vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     vStreamBufferDelete( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// }
+// /*-----------------------------------------------------------*/
+// 
+// BaseType_t MPU_xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     BaseType_t xReturn, xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferIsFull( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// BaseType_t MPU_xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     BaseType_t xReturn, xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferIsEmpty( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// BaseType_t MPU_xStreamBufferReset( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     BaseType_t xReturn, xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferReset( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// size_t MPU_xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     size_t xReturn;
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferSpacesAvailable( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// size_t MPU_xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     size_t xReturn;
+//     BaseType_t xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferBytesAvailable( xStreamBuffer );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// BaseType_t MPU_xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
+//                                              size_t xTriggerLevel ) /* FREERTOS_SYSTEM_CALL */
+// {
+//     BaseType_t xReturn, xRunningPrivileged;
+// 
+//     xPortRaisePrivilege( xRunningPrivileged );
+//     xReturn = xStreamBufferSetTriggerLevel( xStreamBuffer, xTriggerLevel );
+//     vPortResetPrivilege( xRunningPrivileged );
+// 
+//     return xReturn;
+// }
+// /*-----------------------------------------------------------*/
+// 
+// #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+//     StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,
+//                                                          size_t xTriggerLevelBytes,
+//                                                          BaseType_t xIsMessageBuffer ) /* FREERTOS_SYSTEM_CALL */
+//     {
+//         StreamBufferHandle_t xReturn;
+//         BaseType_t xRunningPrivileged;
+// 
+//         xPortRaisePrivilege( xRunningPrivileged );
+//         xReturn = xStreamBufferGenericCreate( xBufferSizeBytes, xTriggerLevelBytes, xIsMessageBuffer );
+//         vPortResetPrivilege( xRunningPrivileged );
+// 
+//         return xReturn;
+//     }
+// #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
+// /*-----------------------------------------------------------*/
+// 
+// #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
+//     StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
+//                                                                size_t xTriggerLevelBytes,
+//                                                                BaseType_t xIsMessageBuffer,
+//                                                                uint8_t * const pucStreamBufferStorageArea,
+//                                                                StaticStreamBuffer_t * const pxStaticStreamBuffer ) /* FREERTOS_SYSTEM_CALL */
+//     {
+//         StreamBufferHandle_t xReturn;
+//         BaseType_t xRunningPrivileged;
+// 
+//         xPortRaisePrivilege( xRunningPrivileged );
+//         xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes, xTriggerLevelBytes, xIsMessageBuffer, pucStreamBufferStorageArea, pxStaticStreamBuffer );
+//         vPortResetPrivilege( xRunningPrivileged );
+// 
+//         return xReturn;
+//     }
+// #endif /* configSUPPORT_STATIC_ALLOCATION */
 /*-----------------------------------------------------------*/
 
 

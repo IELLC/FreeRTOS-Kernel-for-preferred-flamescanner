@@ -29,6 +29,7 @@
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "sys_core.h"
 
 /*-----------------------------------------------------------*/
 
@@ -53,6 +54,8 @@ uint32_t ulCriticalNesting = 9999;
 
 /* Constants required to set up the initial stack of each task. */
 #define portINITIAL_SPSR	   	( ( StackType_t ) 0x1F )
+#define portINITIAL_SPSR_IF_PRIVILEGED   ( ( StackType_t ) 0x1F )
+#define portINITIAL_SPSR_IF_UNPRIVILEGED ( ( StackType_t ) 0x10 )
 #define portINITIAL_FPSCR	  	( ( StackType_t ) 0x00 )
 #define portINSTRUCTION_SIZE   	( ( StackType_t ) 0x04 )
 #define portTHUMB_MODE_BIT		( ( StackType_t ) 0x20 )
@@ -78,7 +81,7 @@ uint32_t ulTaskHasFPUContext = 0;
 /*
  * See header file for description.
  */
-StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters )
+StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters, BaseType_t xRunPrivileged )
 {
 StackType_t *pxOriginalTOS;
 
@@ -143,7 +146,14 @@ StackType_t *pxOriginalTOS;
 	pxTopOfStack--;
 
 	/* Set the status register for system mode, with interrupts enabled. */
-	*pxTopOfStack = ( StackType_t ) ( ( _get_CPSR() & ~0xFF ) | portINITIAL_SPSR );
+	if( xRunPrivileged == pdTRUE )
+	{
+	    *pxTopOfStack = (portSTACK_TYPE) ((_getCPSRValue_() & ~0xFF) | portINITIAL_SPSR_IF_PRIVILEGED);
+	}
+	else
+	{
+	    *pxTopOfStack = (portSTACK_TYPE) ((_getCPSRValue_() & ~0xFF) | portINITIAL_SPSR_IF_UNPRIVILEGED);
+	}
 
 	if( ( ( uint32_t ) pxCode & 0x01UL ) != 0x00 )
 	{
@@ -164,7 +174,143 @@ StackType_t *pxOriginalTOS;
 
 	return pxTopOfStack;
 }
-/*-----------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+
+static unsigned long prvGetMPURegionSizeSetting( unsigned long ulActualSizeInBytes )
+{
+	unsigned long ulRegionSize, ulReturnValue = 4;
+
+	/* 32 is the smallest region size, 31 is the largest valid value for
+	ulReturnValue. */
+	for( ulRegionSize = 32UL; ulReturnValue < 31UL; ( ulRegionSize <<= 1UL ) )
+	{
+		if( ulActualSizeInBytes <= ulRegionSize )
+		{
+			break;
+		}
+		else
+		{
+			ulReturnValue++;
+		}
+	}
+
+	/* Shift the code by one before returning so it can be written directly
+	into the the correct bit position of the attribute register. */
+	return ulReturnValue << 1UL;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void vPortStoreTaskMPUSettings( xMPU_SETTINGS *xMPUSettings, const struct xMEMORY_REGION * const xRegions, StackType_t *pxBottomOfStack, uint32_t usStackDepth )
+{
+	long lIndex;
+	unsigned long ul;
+
+	if( xRegions == NULL )
+	{
+/* USER CODE BEGIN (6) */
+/* USER CODE END */
+		/* No MPU regions are specified so allow access to all of the RAM. */
+		xMPUSettings->xRegion[0].ulRegionBaseAddress = 0x08000000;
+		xMPUSettings->xRegion[0].ulRegionSize        = portMPU_SIZE_512KB | portMPU_REGION_ENABLE;
+		xMPUSettings->xRegion[0].ulRegionAttribute   = portMPU_PRIV_RW_USER_RW_EXEC | portMPU_NORMAL_OIWTNOWA_SHARED;
+
+		/* Re-instate the privileged only RAM region as xRegion[ 0 ] will have
+		just removed the privileged only parameters. */
+		xMPUSettings->xRegion[1].ulRegionBaseAddress = 0x08000000;
+		xMPUSettings->xRegion[1].ulRegionSize        = portMPU_SIZE_4KB | portMPU_REGION_ENABLE;
+		xMPUSettings->xRegion[1].ulRegionAttribute   = portMPU_PRIV_RW_USER_NA_NOEXEC | portMPU_NORMAL_OIWTNOWA_SHARED;
+
+/* USER CODE BEGIN (7) */
+/* USER CODE END */
+		/* Invalidate all other regions. */
+		for( ul = 2; ul <= portNUM_CONFIGURABLE_REGIONS; ul++ )
+		{
+			xMPUSettings->xRegion[ ul ].ulRegionBaseAddress = 0x00000000UL;
+			xMPUSettings->xRegion[ ul ].ulRegionSize        = 0UL;
+			xMPUSettings->xRegion[ ul ].ulRegionAttribute   = 0UL;
+		}
+/* USER CODE BEGIN (8) */
+/* USER CODE END */
+	}
+	else
+	{
+/* USER CODE BEGIN (9) */
+/* USER CODE END */
+		/* This function is called automatically when the task is created - in
+		which case the stack region parameters will be valid.  At all other
+		times the stack parameters will not be valid and it is assumed that the
+		stack region has already been configured. */
+		if( usStackDepth > 0 )
+		{
+			/* Define the region that allows access to the stack. */
+			xMPUSettings->xRegion[0].ulRegionBaseAddress = (unsigned)pxBottomOfStack;
+			xMPUSettings->xRegion[0].ulRegionSize        = prvGetMPURegionSizeSetting( (unsigned long)usStackDepth * (unsigned long) sizeof(portSTACK_TYPE) ) | portMPU_REGION_ENABLE;
+			xMPUSettings->xRegion[0].ulRegionAttribute   = portMPU_REGION_READ_WRITE | portMPU_NORMAL_OIWTNOWA_SHARED;
+
+		}
+/* USER CODE BEGIN (10) */
+/* USER CODE END */
+		lIndex = 0;
+
+		for( ul = 1; ul <= portNUM_CONFIGURABLE_REGIONS; ul++ )
+		{
+			if( ( xRegions[ lIndex ] ).ulLengthInBytes > 0UL )
+			{
+				/* Translate the generic region definition contained in
+				xRegions into the R4 specific MPU settings that are then
+				stored in xMPUSettings. */
+				xMPUSettings->xRegion[ul].ulRegionBaseAddress = (unsigned long) xRegions[lIndex].pvBaseAddress;
+				xMPUSettings->xRegion[ul].ulRegionSize        = prvGetMPURegionSizeSetting( xRegions[ lIndex ].ulLengthInBytes ) | portMPU_REGION_ENABLE;
+				xMPUSettings->xRegion[ul].ulRegionAttribute   = xRegions[ lIndex ].ulParameters;
+			}
+			else
+			{
+				/* Invalidate the region. */
+				xMPUSettings->xRegion[ ul ].ulRegionBaseAddress = 0x00000000UL;
+				xMPUSettings->xRegion[ ul ].ulRegionSize        = 0UL;
+				xMPUSettings->xRegion[ ul ].ulRegionAttribute   = 0UL;
+			}
+			lIndex++;
+		}
+/* USER CODE BEGIN (11) */
+/* USER CODE END */
+	}
+/* USER CODE BEGIN (12) */
+/* USER CODE END */
+}
+
+/*----------------------------------------------------------------------------*/
+
+static void prvSetupDefaultMPU( void )
+{
+	/* make sure MPU is disabled */
+	prvMpuDisable();
+
+	/* First setup the entire flash for unprivileged read only access. */
+	prvMpuSetRegion(portUNPRIVILEGED_FLASH_REGION,  0x00000000, portMPU_SIZE_4MB | portMPU_REGION_ENABLE, portMPU_PRIV_RO_USER_RO_EXEC | portMPU_NORMAL_OIWTNOWA_SHARED);
+
+	/* Setup the first 32K for privileged only access.  This is where the kernel code is
+	placed. */
+	prvMpuSetRegion(portPRIVILEGED_FLASH_REGION,  0x00000000, portMPU_SIZE_32KB | portMPU_REGION_ENABLE, portMPU_PRIV_RO_USER_NA_EXEC | portMPU_NORMAL_OIWTNOWA_SHARED);
+
+	/* Setup the the entire RAM region for privileged read-write and unprivileged read only access */
+	prvMpuSetRegion(portPRIVILEGED_RAM_REGION,  0x08000000, portMPU_SIZE_512KB | portMPU_REGION_ENABLE, portMPU_PRIV_RW_USER_RO_EXEC | portMPU_NORMAL_OIWTNOWA_SHARED);
+
+	/* Default peripherals setup */
+	prvMpuSetRegion(portGENERAL_PERIPHERALS_REGION,  0xF0000000,
+					portMPU_SIZE_256MB | portMPU_REGION_ENABLE | portMPU_SUBREGION_1_DISABLE | portMPU_SUBREGION_2_DISABLE | portMPU_SUBREGION_3_DISABLE | portMPU_SUBREGION_4_DISABLE,
+					portMPU_PRIV_RW_USER_RW_NOEXEC | portMPU_DEVICE_NONSHAREABLE);
+
+	/* Privilege System Region setup */
+	prvMpuSetRegion(portPRIVILEGED_SYSTEM_REGION,  0xFFF80000, portMPU_SIZE_512KB | portMPU_REGION_ENABLE, portMPU_PRIV_RW_USER_RO_NOEXEC | portMPU_DEVICE_NONSHAREABLE);
+	
+	/* Enable MPU */
+	prvMpuEnable();
+}
+
+
+ /*-----------------------------------------------------------*/
 
 static void prvSetupTimerInterrupt(void)
 {

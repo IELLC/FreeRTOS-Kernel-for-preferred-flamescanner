@@ -179,29 +179,13 @@
          * Sets xRunningPrivileged to pdFALSE if privilege was raised, else sets
          * it to pdTRUE.
          */
-        #define xPortRaisePrivilege( xRunningPrivileged )                      \
-        {                                                                      \
-            /* Check whether the processor is already privileged. */           \
-            xRunningPrivileged = portIS_PRIVILEGED();                          \
-                                                                               \
-            /* If the processor is not already privileged, raise privilege. */ \
-            if( xRunningPrivileged == pdFALSE )                                \
-            {                                                                  \
-                portRAISE_PRIVILEGE();                                         \
-            }                                                                  \
-        }
+        #define xPortRaisePrivilege( xRunningPrivileged ) { xRunningPrivileged = prvRaisePrivilege(); }
 
         /**
          * @brief If xRunningPrivileged is not pdTRUE, calls the port specific
          * code to reset the privilege, otherwise does nothing.
          */
-        #define vPortResetPrivilege( xRunningPrivileged )   \
-        {                                                   \
-            if( xRunningPrivileged == pdFALSE )             \
-            {                                               \
-                portRESET_PRIVILEGE();                      \
-            }                                               \
-        }
+        #define vPortResetPrivilege( xRunningPrivileged ) portRESET_PRIVILEGE( xRunningPrivileged )
 
     #endif /* MPU_WRAPPERS_INCLUDED_FROM_API_FILE */
 
